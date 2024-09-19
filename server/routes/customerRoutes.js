@@ -175,7 +175,7 @@ router.post("/", async (req, res) => {
       } ]
     });
 
-    const CompanyModel = companyConnection.model('CUSTOMER', companySchema, 'CUSTOMERS');
+    const CompanyModel = companyConnection.model('COMPANY', companySchema, 'COMPANY');
     const newCompany = new CompanyModel({
       ...req.body,
       regNo: newCompanyRegNo,
