@@ -6,6 +6,7 @@ const authRoutes = require("./routes/authRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const companyRoutes = require("./routes/companyRoutes");
 
+
 dotenv.config();
 const app = express();
 app.use(cors());
