@@ -27,6 +27,11 @@ router.post("/verify", async (req, res) => {
   }
 });
 
+// Modify the naming convention for the company and branch in these routes
+
+// Helper function to format names
+const formatName = (name) => name.toUpperCase().replace(/\s+/g, '').replace(/_/g, '');
+
 // Add branch to existing customer with dynamic regNo for branch
 router.post("/addBranch", async (req, res) => {
   const { companyName, branchName, branchContactPerson, branchContactNumber, branchAddress, branchAmc, branchStartDate, branchUniqueId, branchUsername, branchPassword } = req.body;
@@ -44,23 +49,8 @@ router.post("/addBranch", async (req, res) => {
       const companyBaseRegNo = existingCustomer.regNo.split('.')[0];
       const newBranchRegNo = `${companyBaseRegNo}.${branchCount + 1}`; // Increment branch number
 
-      existingCustomer.branches.push({
-        branchId: branchUniqueId,  // Ensure branchUniqueId is unique
-        branchName,
-        branchContactPerson,
-        branchContactNumber,
-        branchAddress,
-        branchAmc,
-        branchStartDate,
-        branchUniqueId,
-        regNo: newBranchRegNo,  // Assign regNo for branch
-        branchUsername, branchPassword
-      });
-
-      await existingCustomer.save();
-
       // Connect to the company's specific database
-      const companyDbName = `COMPANY_${companyName.toUpperCase().replace(/\s+/g, "_")}`;
+      const companyDbName = `COMPANY_${formatName(companyName)}`;
       const companyConnection = mongoose.createConnection(`mongodb+srv://akash19082001:akash19082001@atlascluster.hsvvs.mongodb.net/${companyDbName}`, {
         useNewUrlParser: true,
         useUnifiedTopology: true
@@ -74,16 +64,18 @@ router.post("/addBranch", async (req, res) => {
         branchAddress: String,
         branchAmc: String,
         branchStartDate: Date,
-        branchUniqueId: String,
+        branchUniqueId: { type: String, unique: true }, // Ensure unique ID
         branchUsername: String,
-        branchPassword: String
+        branchPassword: String,
+        regNo: String
       });
 
-      // Create a model for the branch collection
-      const branchCollectionName = `BRANCH_${branchName.toUpperCase().replace(/\s+/g, "_")}`;
-      const BranchModel = companyConnection.model(branchCollectionName, branchSchema, branchCollectionName);
+     
 
-      // Save the new branch
+      // Create a model for the branch collection
+      const BranchModel = companyConnection.model(`BRANCH_${formatName(branchName)}`, branchSchema);
+
+      // Save the new branch in the branch collection
       const newBranch = new BranchModel({
         branchName,
         branchContactPerson,
@@ -93,10 +85,28 @@ router.post("/addBranch", async (req, res) => {
         branchStartDate,
         branchUniqueId,
         branchUsername,
-        branchPassword
+        branchPassword,
+        regNo: newBranchRegNo // Assign regNo for branch
       });
 
       await newBranch.save();
+
+      // Push branch details into the existing company document
+      existingCustomer.branches.push({
+        branchId: branchUniqueId,
+        branchName,
+        branchContactPerson,
+        branchContactNumber,
+        branchAddress,
+        branchAmc,
+        branchStartDate,
+        branchUniqueId,
+        regNo: newBranchRegNo,
+        branchUsername,
+        branchPassword
+      });
+
+      await existingCustomer.save();
 
       // Close the company database connection
       companyConnection.close();
@@ -109,6 +119,7 @@ router.post("/addBranch", async (req, res) => {
     handleError(res, error);
   }
 });
+
 
 // Create new customer with dynamic regNo
 router.post("/", async (req, res) => {
@@ -145,7 +156,7 @@ router.post("/", async (req, res) => {
     await newCustomer.save();
 
     // Create a collection for the branches in the company database
-    const companyDbName = `COMPANY_${companyName.toUpperCase().replace(/\s+/g, "_")}`;
+    const companyDbName = `COMPANY_${formatName(companyName)}`;
     const companyConnection = mongoose.createConnection(`mongodb+srv://akash19082001:akash19082001@atlascluster.hsvvs.mongodb.net/${companyDbName}`, {
       useNewUrlParser: true,
       useUnifiedTopology: true
@@ -267,6 +278,5 @@ router.get("/getLatestBranchRegNo/:companyName", async (req, res) => {
     handleError(res, error);
   }
 });
-
 
 module.exports = router;
