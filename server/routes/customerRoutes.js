@@ -9,6 +9,23 @@ const handleError = (res, error) => {
   res.status(500).json({ success: false, message: error.message });
 };
 
+// Helper function to format names
+
+// Modify the naming convention for the company and branch in these routes
+const formatName = (name) => name.toUpperCase().replace(/\s+/g, '').replace(/_/g, '');
+
+// Helper function to get the company identifier dynamically
+const getCompanyIdentifier = async () => {
+  try {
+    // Get all customer collections to count existing companies
+    const allCustomers = await mongoose.connection.db.listCollections().toArray();
+    const companyCount = allCustomers.filter(c => c.name.startsWith('COMPANY_')).length; // Count companies
+    return companyCount + 1; // Return the next company number
+  } catch (error) {
+    throw new Error('Error getting company identifier');
+  }
+};
+
 // Verify if company with given regNo and companyName exists
 router.post("/verify", async (req, res) => {
   const { companyName, regNo } = req.body;
@@ -27,10 +44,9 @@ router.post("/verify", async (req, res) => {
   }
 });
 
-// Modify the naming convention for the company and branch in these routes
 
-// Helper function to format names
-const formatName = (name) => name.toUpperCase().replace(/\s+/g, '').replace(/_/g, '');
+
+
 
 // Add branch to existing customer with dynamic regNo for branch
 router.post("/addBranch", async (req, res) => {
@@ -130,8 +146,11 @@ router.post("/", async (req, res) => {
     const allCustomers = await mongoose.connection.db.listCollections().toArray();
     const companyCount = allCustomers.filter(c => c.name.startsWith('COMPANY_')).length; // Count companies
 
+     // Get company identifier dynamically
+     const companyIdentifier = await getCompanyIdentifier();
+
     // Generate regNo for the new company
-    const newCompanyRegNo = `${companyCount + 1}.0`;
+    const newCompanyRegNo = `${companyIdentifier}.0`;
 
     const CustomerModel = getCustomerModel(companyName);
     const newCustomer = new CustomerModel({
@@ -148,7 +167,7 @@ router.post("/", async (req, res) => {
             branchUniqueId,
             branchUsername,
             branchPassword,
-            regNo: `${companyCount + 1}.1`,  // First branch of new company
+            regNo: `${companyIdentifier}.1`,  // First branch of new company
           } ]
         : []
     });
@@ -201,7 +220,7 @@ router.post("/", async (req, res) => {
             branchUniqueId,
             branchUsername,
             branchPassword,
-            regNo: `${companyCount + 1}.1`,
+            regNo: `${companyIdentifier}.1`,
           } ]
         : []
     });
