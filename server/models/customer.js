@@ -24,16 +24,16 @@ const customerSchema = new mongoose.Schema({
   }]
 });
 
-// Function to get the model dynamically
-const getCustomerModel = (companyName) => {
-  const modelName = companyName === 'CUSTOMERS' 
-    ? 'CUSTOMERS' 
-    : `COMPANY_${companyName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '_')}`;
+// Helper function to format names
+const formatName = (name) => name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
 
+const getCustomerModel = (companyName) => {
+  const modelName = `COMPANY_${formatName(companyName)}`;
+  
   if (!mongoose.models[modelName]) {
     return mongoose.model(modelName, customerSchema, modelName);
   }
-
+  
   return mongoose.model(modelName);
 };
 
