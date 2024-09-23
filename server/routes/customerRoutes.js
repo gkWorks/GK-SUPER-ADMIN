@@ -1,5 +1,5 @@
 const express = require("express");
-const { getCustomerModel } = require("../models/customer");
+const { getCustomerModel, formatName } = require("../models/customer");
 const router = express.Router();
 const mongoose = require('mongoose');
 
@@ -9,10 +9,7 @@ const handleError = (res, error) => {
   res.status(500).json({ success: false, message: error.message });
 };
 
-// Helper function to format names
 
-// Modify the naming convention for the company and branch in these routes
-const formatName = (name) => name.toUpperCase().replace(/\s+/g, '').replace(/_/g, '');
 
 // Helper function to get the company identifier dynamically
 const getCompanyIdentifier = async () => {
@@ -44,10 +41,6 @@ router.post("/verify", async (req, res) => {
   }
 });
 
-
-
-
-
 // Add branch to existing customer with dynamic regNo for branch
 router.post("/addBranch", async (req, res) => {
   const { companyName, branchName, branchContactPerson, branchContactNumber, branchAddress, branchAmc, branchStartDate, branchUniqueId, branchUsername, branchPassword } = req.body;
@@ -57,84 +50,88 @@ router.post("/addBranch", async (req, res) => {
     const CustomerModel = getCustomerModel(companyName);
     const existingCustomer = await CustomerModel.findOne({ companyName });
 
-    if (existingCustomer) {
-      const branches = existingCustomer.branches || [];
-      const branchCount = branches.length;
-
-      // Use the company base regNo to generate the branch regNo
-      const companyBaseRegNo = existingCustomer.regNo.split('.')[0];
-      const newBranchRegNo = `${companyBaseRegNo}.${branchCount + 1}`; // Increment branch number
-
-      // Connect to the company's specific database
-      const companyDbName = `COMPANY_${formatName(companyName)}`;
-      const companyConnection = mongoose.createConnection(`mongodb+srv://akash19082001:akash19082001@atlascluster.hsvvs.mongodb.net/${companyDbName}`, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-      });
-
-      // Define the schema for branch collection
-      const branchSchema = new mongoose.Schema({
-        branchName: String,
-        branchContactPerson: String,
-        branchContactNumber: String,
-        branchAddress: String,
-        branchAmc: String,
-        branchStartDate: Date,
-        branchUniqueId: { type: String, unique: true }, // Ensure unique ID
-        branchUsername: String,
-        branchPassword: String,
-        regNo: String
-      });
-
-     
-
-      // Create a model for the branch collection
-      const BranchModel = companyConnection.model(`BRANCH_${formatName(branchName)}`, branchSchema);
-
-      // Save the new branch in the branch collection
-      const newBranch = new BranchModel({
-        branchName,
-        branchContactPerson,
-        branchContactNumber,
-        branchAddress,
-        branchAmc,
-        branchStartDate,
-        branchUniqueId,
-        branchUsername,
-        branchPassword,
-        regNo: newBranchRegNo // Assign regNo for branch
-      });
-
-      await newBranch.save();
-
-      // Push branch details into the existing company document
-      existingCustomer.branches.push({
-        branchId: branchUniqueId,
-        branchName,
-        branchContactPerson,
-        branchContactNumber,
-        branchAddress,
-        branchAmc,
-        branchStartDate,
-        branchUniqueId,
-        regNo: newBranchRegNo,
-        branchUsername,
-        branchPassword
-      });
-
-      await existingCustomer.save();
-
-      // Close the company database connection
-      companyConnection.close();
-
-      res.status(200).json({ success: true, data: existingCustomer });
-    } else {
-      res.status(404).json({ success: false, message: "Company not found" });
+    if (!existingCustomer) {
+      return res.status(404).json({ success: false, message: "Company not found" });
     }
+
+    const branches = existingCustomer.branches || [];
+    const companyBaseRegNo = existingCustomer.regNo.split('.')[0];
+    const newBranchRegNo = `${companyBaseRegNo}.${branches.length + 1}`;
+
+    // Format the branch name
+    const formattedBranchName = formatName(branchName);
+    const branchCollectionName = `branch_${formattedBranchName}`;
+
+    console.log(`Formatted Branch Name: ${formattedBranchName}`);
+    console.log(`Branch Collection Name: ${branchCollectionName}`);
+
+    // Connect to the company's specific database
+    const companyDbName = `COMPANY_${formatName(companyName)}`;
+    const companyConnection = mongoose.createConnection(`mongodb+srv://akash19082001:akash19082001@atlascluster.hsvvs.mongodb.net/${companyDbName}`, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+
+    // Define the schema for branch collection
+    const branchSchema = new mongoose.Schema({
+      branchName: String,
+      branchContactPerson: String,
+      branchContactNumber: String,
+      branchAddress: String,
+      branchAmc: String,
+      branchStartDate: Date,
+      branchUniqueId: { type: String, unique: true }, // Ensure unique ID
+      branchUsername: String,
+      branchPassword: String,
+      regNo: String
+    });
+
+    // Create a model for the branch collection
+    const BranchModel = companyConnection.model(branchCollectionName, branchSchema);
+
+    // Save the new branch in the branch collection
+    const newBranch = new BranchModel({
+      branchName,
+      branchContactPerson,
+      branchContactNumber,
+      branchAddress,
+      branchAmc,
+      branchStartDate,
+      branchUniqueId,
+      branchUsername,
+      branchPassword,
+      regNo: newBranchRegNo // Assign regNo for branch
+    });
+
+    await newBranch.save();
+
+    // Push branch details into the existing company document
+    existingCustomer.branches.push({
+      branchId: branchUniqueId,
+      branchName,
+      branchContactPerson,
+      branchContactNumber,
+      branchAddress,
+      branchAmc,
+      branchStartDate,
+      branchUniqueId,
+      regNo: newBranchRegNo,
+      branchUsername,
+      branchPassword
+    });
+
+    await existingCustomer.save();
+
+    // Close the company database connection
+    companyConnection.close();
+
+    res.status(200).json({ success: true, data: existingCustomer });
   } catch (error) {
+    console.error('Error adding branch:', error);
     handleError(res, error);
   }
 });
+
 
 
 // Create new customer with dynamic regNo
